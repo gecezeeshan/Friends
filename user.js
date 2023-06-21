@@ -1,4 +1,3 @@
-const { query } = require('express');
 const db = require('./database');
 
 const init = async () => {
@@ -6,7 +5,7 @@ const init = async () => {
   await db.run('CREATE TABLE Friends (id INTEGER PRIMARY KEY AUTOINCREMENT, userId int, friendId int);');
   const users = [];
   const names = ['foo', 'bar', 'baz'];
-  for (i = 0; i < 100; ++i) {
+  for (i = 0; i < 10; ++i) {
     let n = i;
     let name = '';
     for (j = 0; j < 3; ++j) {
@@ -17,6 +16,7 @@ const init = async () => {
     }
     users.push(name);
   }
+  //console.log(users);
   const friends = users.map(() => []);
   for (i = 0; i < friends.length; ++i) {
     const n = 10 + Math.floor(90 * Math.random());
@@ -29,6 +29,7 @@ const init = async () => {
         return;
       }
       friends[i].push(j);
+
       friends[j].push(i);
     });
   }
@@ -38,20 +39,30 @@ const init = async () => {
   await Promise.all(friends.map((list, i) => {
     return Promise.all(list.map((j) => db.run(`INSERT INTO Friends (userId, friendId) VALUES (${i + 1}, ${j + 1});`)));
   }));
+
   console.log("Ready.");
 }
 module.exports.init = init;
 
 const search = async (req, res) => {
 
-  const query = req.params.query;
   const userId = parseInt(req.params.userId);
+  var str = '';
+  var querySt = `SELECT id, name, id in 
+  (SELECT friendId from Friends where userId = ${userId}) as connection
+   from Users '${str}' LIMIT 20;`;
 
-  db.all(`SELECT id, name, id in (SELECT friendId from Friends 
-    where (userId = ${userId} or  ${userId} = '')) as connection from Users 
-    where name = '${query}' 
-    --LIMIT 20
-    ;`).then((results) => {
+
+
+  if (req.params.query != null) {
+    const query = req.params.query;    
+    querySt = `SELECT id, name, id in 
+  (SELECT friendId from Friends where userId = ${userId}) as connection
+   from Users  where name LIKE '${query}%'  LIMIT 20;`;
+  }
+
+
+  db.all(querySt).then((results) => {
     res.statusCode = 200;
     res.json({
       success: true,
@@ -65,66 +76,14 @@ const search = async (req, res) => {
 module.exports.search = search;
 
 
-const allUsers = async (req, res) => {
-  db.all(`SELECT *  from Users `).then((results) => {
-    res.statusCode = 200;
-    res.json({
-      success: true,
-      users: results
-    });
-  }).catch((err) => {
-    res.statusCode = 500;
-    res.json({ success: false, error: err });
-  });
-}
-module.exports.allUsers = allUsers;
 
-const allFriendById = async (req, res) => {
-  const query = req.params?.query;
-  db.all(`SELECT f.friendId,u.name 
-  from Friends f
-  join Users u
-  on u.Id = f.UserId
-  where (userId = '${query}' )
-   `).then((results) => {
-    res.statusCode = 200;
-    res.json({
-      success: true,
-      users: results
-    });
-  }).catch((err) => {
-    res.statusCode = 500;
-    res.json({ success: false, error: err });
-  });
-}
-module.exports.allFriendById = allFriendById;
-
-
-
-const allFriends = async (req, res) => {
-  const query = req.params?.query;
-  db.all(`SELECT u.Id,f.friendId,u.name 
-  from Friends f
-  join Users u
-  on u.Id = f.UserId   `).then((results) => {
-    res.statusCode = 200;
-    res.json({
-      success: true,
-      users: results
-    });
-  }).catch((err) => {
-    res.statusCode = 500;
-    res.json({ success: false, error: err });
-  });
-}
-module.exports.allFriends = allFriends;
-
-
-const unfriend = async (req, res) => {
-  const friendId = req.params.friendId;
+const getUsers = async (req, res) => {
+  const query = req.params.query;
   const userId = parseInt(req.params.userId);
-  query1 = `delete from Friends where userId = '${userId}' and   friendId = '${friendId}'  `;
-  db.all(query1).then((results) => {
+
+
+  db.all(`SELECT id, name
+   from Users where id = '${userId}';`).then((results) => {
     res.statusCode = 200;
     res.json({
       success: true,
@@ -135,19 +94,92 @@ const unfriend = async (req, res) => {
     res.json({ success: false, error: err });
   });
 }
-module.exports.unfriend = unfriend;
+module.exports.users = getUsers;
+
+
+const getUserById = async (req, res) => {
+
+  const userId = parseInt(req.params.userId);
+
+  var query = `select u.id, u.name, (select name from users where id = f.friendId) as friendName from users u
+join friends f
+on u.id = f.userId
+where u.id = '${userId}'
+`;
+  console.log(query);
+
+  db.all(query).then((results) => {
+    res.statusCode = 200;
+    res.json({
+      success: true,
+      users: results
+    });
+  }).catch((err) => {
+    res.statusCode = 500;
+    res.json({ success: false, error: err });
+  });
+}
+module.exports.getUserById = getUserById;
+
+
+
+const getAllUser = async (req, res) => {
+  const query = req.params.query;
+  const userId = parseInt(req.params.userId);
+
+  var statmnt = `select u.id, u.name, f.id as FriendId, (select name from users where id = f.friendId) as friendName from users u
+join friends f
+on u.id = f.userId`;
+  debugger;
+
+  db.all(statmnt).then((results) => {
+    res.statusCode = 200;
+    res.json({
+      success: true,
+      users: results
+    });
+  }).catch((err) => {
+    res.statusCode = 500;
+    res.json({ success: false, error: err });
+  });
+}
+module.exports.getAllUser = getAllUser;
+
+
+
+
+
+const unFriend = async (req, res) => {
+  const friendId = parseInt(req.params.friendId);
+  const userId = parseInt(req.params.userId);
+
+  var statmnt = `delete from friends where userId = ${userId} and friendId = ${friendId}`;
+
+
+  db.all(statmnt).then((results) => {
+    res.statusCode = 200;
+    res.json({
+      success: true
+    });
+  }).catch((err) => {
+    res.statusCode = 500;
+    res.json({ success: false, error: err });
+  });
+}
+module.exports.unFriend = unFriend;
 
 
 const Friend = async (req, res) => {
-  const friendId = req.params.friendId;
+  const friendId = parseInt(req.params.friendId);
   const userId = parseInt(req.params.userId);
-  query1 = `INSERT INTO Friends (userId, friendId) 
-  VALUES (${userId}, ${friendId});`;
-  await db.run(query1).then((results) => {
+
+  var statmnt = `INSERT INTO Friends (userId, friendId) VALUES (${userId}, ${friendId});`;
+
+
+  db.all(statmnt).then((results) => {
     res.statusCode = 200;
     res.json({
-      success: true,
-      users: results
+      success: true
     });
   }).catch((err) => {
     res.statusCode = 500;
@@ -155,3 +187,4 @@ const Friend = async (req, res) => {
   });
 }
 module.exports.Friend = Friend;
+

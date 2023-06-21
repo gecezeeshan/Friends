@@ -8,9 +8,12 @@ router.get('/search/:userId/:query', user.search);
 
  router.get('/Friend/:userId/:friendId',user.Friend);
 
-router.get('/allusers',user.allUsers);
-router.get('/allFriendById/:query',user.allFriends);
-router.get('/allFriends',user.allFriends);
-router.get('/unfriend/:userId/:friendId',user.unfriend);
+router.get('/getAllUser', user.getAllUser);
+
+router.get('/getUserById/:userId', user.getUserById);
+
+router.get('/unfriend/:userId/:friendId', user.unFriend);
+
+router.get('/friend/:userId/:friendId', user.Friend);
 
 module.exports = router;
